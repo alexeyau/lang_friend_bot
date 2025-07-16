@@ -1,11 +1,15 @@
 {
-  "name": "langfriendbot",
+  "name": "langfriendtgbot",
   "version": "1.0.0",
   "main": "dist/app.js",
   "scripts": {
     "dev": "nodemon src/app.ts",
-    "start": "npx tsc && node dist/app.js",
+    "build": "npx tsc",
+    "start": "node dist/app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": [],
   "author": "",
