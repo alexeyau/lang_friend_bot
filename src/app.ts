@@ -2,6 +2,7 @@ import { Telegraf, Context } from 'telegraf';
 import * as dotenv from 'dotenv';
 import pool, { createUserSettingsTable } from './db';
 import axios from 'axios';
+import { getPrompt, isValidFireworksKey } from './helpers';
 
 dotenv.config();
 
@@ -14,7 +15,7 @@ bot.start((ctx) => ctx.reply('Привет! Я бот, использующий 
 
 bot.command('set_key', async (ctx) => {
   const userId = ctx.from.id;
-  const apiKey = ctx.message.text.split(' ')[1];
+  const apiKey = ctx.message.text.split(' ')[1].trim();
 
   if (!apiKey) {
     return ctx.reply('Пожалуйста, укажи свой API ключ после команды /set_key.');
@@ -43,26 +44,31 @@ bot.on('text', async (ctx) => {
 
     const fireworksApiKey = userSettings.rows.length > 0 ? userSettings.rows[0].fireworks_api_key : process.env.FIREWORKS_API_KEY;
 
-    if (!fireworksApiKey) {
+    if (!isValidFireworksKey(fireworksApiKey)) {
       return ctx.reply('API ключ для Fireworks AI не найден. Пожалуйста, установи его с помощью команды /set_key или убедись, что он задан в .env файле.');
     }
 
-    const response = await axios.post('https://api.fireworks.ai/inference/v1/chat/completions', {
-      model: 'accounts/fireworks/models/deepseek-chat',
-      messages: [
+    const model = 'accounts/fireworks/models/deepseek-v3';
+    const response = await axios.post(
+        'https://api.fireworks.ai/inference/v1/completions',
         {
-          role: 'user',
-          content: userText,
+            model: model,
+            prompt: getPrompt(userText),
+            max_tokens: 400,
+            temperature: 0.7,
+            top_p: 0.9,
+            stream: false
         },
-      ],
-    }, {
-      headers: {
-        'Authorization': `Bearer ${fireworksApiKey}`,
-        'Content-Type': 'application/json',
-      },
-    });
+        {
+            headers: {
+            'Authorization': `Bearer ${fireworksApiKey}`
+            }
+        },
+    );
 
-    ctx.reply(response.data.choices[0].message.content);
+    //console.log(' >> ', JSON.stringify(response.data));
+
+    ctx.reply(response.data.choices[0].text);
 
   } catch (error) {
     console.error('Ошибка при запросе к Fireworks AI:', error);
