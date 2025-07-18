@@ -1,6 +1,6 @@
 # Запуск бота
 
-## Скомпилируйте TypeScript код
+## Скомпилировать
 
 ```bash
 npx tsc
@@ -15,5 +15,5 @@ npm run dev
 или
 
 ```bash
-npm run prod
+npm run start
 ```
