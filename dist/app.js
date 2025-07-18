@@ -43,11 +43,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const telegraf_1 = require("telegraf");
-const dotenv = __importStar(require("dotenv"));
 const db_1 = __importStar(require("./db"));
 const helpers_1 = require("./helpers");
 const api_1 = require("./api");
-dotenv.config();
+console.log(">>> NODE_ENV:", process.env.NODE_ENV);
+if (process.env.NODE_ENV !== 'production') { // fly.io has another way to set secrets
+    require('dotenv').config();
+}
+console.log(">>> BOT_TOKEN:", process.env.BOT_TOKEN);
 const bot = new telegraf_1.Telegraf(process.env.BOT_TOKEN || '');
 // Создаем таблицы при запуске бота
 (0, db_1.createUserSettingsTable)();

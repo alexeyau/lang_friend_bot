@@ -5,7 +5,13 @@ import axios from 'axios';
 import { getPrompt, isValidFireworksKey, SEPARATOR } from './helpers';
 import { requestGpt } from './api';
 
-dotenv.config();
+console.log(">>> NODE_ENV:", process.env.NODE_ENV);
+
+if (process.env.NODE_ENV !== 'production') { // fly.io has another way to set secrets
+  require('dotenv').config();
+}
+
+console.log(">>> BOT_TOKEN:", process.env.BOT_TOKEN);
 
 const bot = new Telegraf(process.env.BOT_TOKEN || '');
 
