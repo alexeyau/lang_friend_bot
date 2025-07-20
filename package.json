@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "nodemon src/app.ts",
     "build": "npx tsc",
-    "start": "node dist/app.js",
+    "start": "npm run migrate:up && node dist/app.js",
+    "migrate:up": "node-pg-migrate up --database-url $DATABASE_URL",
+    "migrate:down": "node-pg-migrate down --database-url $DATABASE_URL",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "engines": {
@@ -27,6 +29,7 @@
   },
   "devDependencies": {
     "@flydotio/dockerfile": "^0.7.10",
+    "node-pg-migrate": "^8.0.3",
     "nodemon": "^3.1.10"
   }
 }

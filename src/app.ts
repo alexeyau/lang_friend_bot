@@ -1,32 +1,30 @@
-import { Telegraf, Context } from 'telegraf';
-import * as dotenv from 'dotenv';
-import pool, { createMessageHistoryTable, createUserSettingsTable } from './db';
-import axios from 'axios';
-import { getPrompt, isValidFireworksKey, SEPARATOR } from './helpers';
+import { Telegraf } from 'telegraf';
+import pool from './db';
+import { isValidFireworksKey, SEPARATOR } from './helpers';
 import { requestGpt } from './api';
-
-console.log(">>> NODE_ENV:", process.env.NODE_ENV);
+import {
+  welcomeText,
+  provideKeyText,
+  historyCleanedText,
+  saveKeyErrorText,
+  noKeyText,
+  requestAIerrorText,
+ } from './lang';
 
 if (process.env.NODE_ENV !== 'production') { // fly.io has another way to set secrets
   require('dotenv').config();
 }
 
-console.log(">>> BOT_TOKEN:", process.env.BOT_TOKEN);
-
 const bot = new Telegraf(process.env.BOT_TOKEN || '');
 
-// Создаем таблицы при запуске бота
-createUserSettingsTable();
-createMessageHistoryTable();
-
-bot.start((ctx) => ctx.reply('Привет! Я бот, использующий нейросеть Deepseek. Отправь мне /set_key <твой_ключ_fireworks_ai> для сохранения твоего ключа.'));
+bot.start((ctx) => ctx.reply(welcomeText));
 
 bot.command('set_key', async (ctx) => {
   const userId = ctx.from.id;
   const apiKey = ctx.message.text.split(' ')[1];
 
   if (!apiKey) {
-    return ctx.reply('Пожалуйста, укажи свой API ключ после команды /set_key');
+    return ctx.reply(provideKeyText);
   }
 
   try {
@@ -38,17 +36,16 @@ bot.command('set_key', async (ctx) => {
     }
     ctx.reply('Твой API ключ от Fireworks AI сохранен!');
   } catch (error) {
-    console.error('Ошибка при сохранении ключа:', error);
+    console.error(saveKeyErrorText, error);
     ctx.reply('Произошла ошибка при сохранении ключа.');
   }
 });
 
-// Новая команда для очистки истории
 bot.command('clear', async (ctx) => {
   const userId = ctx.from.id;
   try {
     await pool.query('DELETE FROM lf_bot_message_history WHERE user_id = $1', [userId]);
-    ctx.reply('История общения очищена!');
+    ctx.reply(historyCleanedText);
   } catch (error) {
     console.error('Ошибка при очистке истории:', error);
     ctx.reply('Произошла ошибка при очистке истории.');
@@ -69,7 +66,7 @@ bot.on('text', async (ctx) => {
     const fireworksApiKey = userSettings.rows.length > 0 ? userSettings.rows[0].fireworks_api_key : process.env.FIREWORKS_API_KEY;
 
     if (!isValidFireworksKey(fireworksApiKey)) {
-      return ctx.reply('API ключ для Fireworks AI не найден. Пожалуйста, установи его с помощью команды /set_key или убедись, что он задан в .env файле.');
+      return ctx.reply(noKeyText);
     }
 
     await pool.query(
@@ -103,8 +100,8 @@ bot.on('text', async (ctx) => {
     ctx.reply(botResponseText);
 
   } catch (error) {
-    console.error('Ошибка при запросе к Fireworks AI:', error);
-    ctx.reply('Произошла ошибка при обработке твоего запроса.');
+    console.error('Произошла ошибка при обработке запроса.', error);
+    ctx.reply(requestAIerrorText);
   }
 });
 
