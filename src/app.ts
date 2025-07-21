@@ -90,8 +90,13 @@ bot.command('set_language', (ctx) => {
   ctx.reply('🌐 Выберите язык:', {
     reply_markup: {
       inline_keyboard: [
-        [{ text: '🇦🇲 Армянский', callback_data: 'set_armenian' }],
         [{ text: '🇬🇧 Английский', callback_data: 'set_english' }],
+        [{ text: '🇦🇲 Армянский', callback_data: 'set_armenian' }],
+        [{ text: '🇬🇷 Греческий', callback_data: 'set_greek' }],
+        [{ text: '🇷🇴 Румынский', callback_data: 'set_romanian' }],
+        [{ text: '🇷🇸 Сербский', callback_data: 'set_serbian' }],
+        [{ text: '🇪🇪 Эстонский', callback_data: 'set_estonian' }],
+        [{ text: '🇯🇵 Японский', callback_data: 'set_japanese' }],
       ]
     }
   });
@@ -103,7 +108,6 @@ bot.on('callback_query', async (ctx) => {
   const callback = ctx.callbackQuery;
 
   if ('data' in callback) {
-    console.log(' >>> ', callback.data);
     const userId = ctx.from.id;
     const data = callback.data;
 
@@ -112,7 +116,7 @@ bot.on('callback_query', async (ctx) => {
         `INSERT INTO lf_bot_user_settings (user_id, language)
          VALUES ($1, $2)
          ON CONFLICT (user_id) DO UPDATE SET language = EXCLUDED.language`,
-        [userId, 'армянский']
+        [userId, 'восточноармянский']
       );
       await ctx.answerCbQuery('Установлен армянский язык 🇦🇲');
       await ctx.editMessageText('✅ Установлен язык: армянский 🇦🇲');
@@ -128,14 +132,68 @@ bot.on('callback_query', async (ctx) => {
       await ctx.answerCbQuery('Установлен английский язык 🇬🇧');
       await ctx.editMessageText('✅ Language set: English 🇬🇧');
     }
+
+    if (data === 'set_greek') {
+      await pool.query(
+        `INSERT INTO lf_bot_user_settings (user_id, language)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id) DO UPDATE SET language = EXCLUDED.language`,
+        [userId, 'греческий']
+      );
+      await ctx.answerCbQuery('Установлен греческий язык 🇬🇷');
+      await ctx.editMessageText('✅ Language set: Greek 🇬🇷');
+    }
+
+    if (data === 'set_romanian') {
+      await pool.query(
+        `INSERT INTO lf_bot_user_settings (user_id, language)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id) DO UPDATE SET language = EXCLUDED.language`,
+        [userId, 'румынский']
+      );
+      await ctx.answerCbQuery('Установлен румынский язык 🇷🇴');
+      await ctx.editMessageText('✅ Language set: Romanian 🇷🇴');
+    }
+
+    if (data === 'set_japanese') {
+      await pool.query(
+        `INSERT INTO lf_bot_user_settings (user_id, language)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id) DO UPDATE SET language = EXCLUDED.language`,
+        [userId, 'японский']
+      );
+      await ctx.answerCbQuery('Установлен японский язык 🇯🇵');
+      await ctx.editMessageText('✅ Language set: Japanese 🇯🇵');
+    }
+
+    if (data === 'set_estonian') {
+      await pool.query(
+        `INSERT INTO lf_bot_user_settings (user_id, language)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id) DO UPDATE SET language = EXCLUDED.language`,
+        [userId, 'эстонский']
+      );
+      await ctx.answerCbQuery('Установлен эстонский язык 🇪🇪');
+      await ctx.editMessageText('✅ Language set: Estonian 🇪🇪');
+    }
+
+    if (data === 'set_serbian') {
+      await pool.query(
+        `INSERT INTO lf_bot_user_settings (user_id, language)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id) DO UPDATE SET language = EXCLUDED.language`,
+        [userId, 'сербский']
+      );
+      await ctx.answerCbQuery('Установлен сербский язык 🇷🇸');
+      await ctx.editMessageText('✅ Language set: Serbian 🇷🇸');
+    }
   } else {
-    // Например, GameQuery — просто игнорируем или логируем
     console.warn('Unsupported callbackQuery type:', callback);
   }
 });
 
 
-// команды идут перед обработчиком текстовых сообщений
+// Команды идут перед обработчиком текстовых сообщений
 
 
 bot.on('text', async (ctx) => {
@@ -166,13 +224,17 @@ bot.on('text', async (ctx) => {
     const data = await requestGpt(userText, messagesForApi, fireworksApiKey, language);
     const botResponseText = data.choices[0].text;
 
-    // Сохраняем ответ бота в БД
-    await pool.query(
-      'INSERT INTO lf_bot_message_history (user_id, role, content) VALUES ($1, $2, $3)',
-      [userId, 'assistant', botResponseText.split(SEPARATOR)[0]],
-    );
+    if (botResponseText && botResponseText.trim().length > 0) {
+      // Сохраняем ответ бота в БД
+      await pool.query(
+        'INSERT INTO lf_bot_message_history (user_id, role, content) VALUES ($1, $2, $3)',
+        [userId, 'assistant', botResponseText.split(SEPARATOR)[0]],
+      );
 
-    ctx.reply(botResponseText.replace(SEPARATOR, ''));
+      await ctx.reply(botResponseText.replace(SEPARATOR, ''));
+    } else {
+      console.warn('Пустой ответ, ничего не отправляем');
+    }
 
     postponedPingMessage(
       userId,

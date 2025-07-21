@@ -1,6 +1,10 @@
 import axios from "axios";
 import { getPrompt, Message } from './helpers';
 
+// accounts/fireworks/models/deepseek-v3
+//accounts/fireworks/models/deepseek-r1-0528 - bad
+// accounts/fireworks/models/llama4-maverick-instruct-basic better but continuing
+// accounts/fireworks/models/deepseek-r1 almost ok
 const model = 'accounts/fireworks/models/deepseek-v3';
 
 type Responce = {
@@ -22,8 +26,8 @@ export async function requestGpt(
       model: model,
       prompt: getPrompt(userText, messages, language),
       max_tokens: 400,
-      temperature: 0.7,
-      top_p: 0.9,
+      temperature: 0.6,
+      top_p: 0.8,
       stream: false
     },
     {
