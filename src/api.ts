@@ -9,7 +9,8 @@ type Responce = {
     }[],
 };
 
-export async function requestGpt(userText: string, messages: Message[], fireworksApiKey: string): Promise<Responce> {
+export async function requestGpt(userText: string | null, messages: Message[], fireworksApiKey: string): Promise<Responce> {
+  console.log(' >>> ', getPrompt(userText, messages));
   const response = await axios.post(
     'https://api.fireworks.ai/inference/v1/completions',
     {
