@@ -26,4 +26,6 @@ export const requestAIerrorText = 'Ошибка при запросе к Firewor
 
 export const cleanHistoryErrorText = 'Произошла ошибка при очистке истории.'
 
+export const cleanSettingsText = 'API ключ и настройки удалены';
 
+export const cleanSettingsErrorText = 'Ошибка, API ключ и настройки не удалены';

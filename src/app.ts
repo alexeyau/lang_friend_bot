@@ -13,6 +13,8 @@ import {
   cleanHistoryErrorText,
   apiKeySavedText,
   saveApiKeyErrorText,
+  cleanSettingsText,
+  cleanSettingsErrorText,
  } from './lang';
 
 type Ctx = NarrowedContext<Context<Update>, {
@@ -51,13 +53,15 @@ bot.command('set_key', async (ctx) => {
       await pool.query('INSERT INTO lf_bot_user_settings (user_id, fireworks_api_key) VALUES ($1, $2)', [userId, apiKey.trim()]);
     }
     ctx.reply(apiKeySavedText);
+
   } catch (error) {
     console.error(saveKeyErrorText, error);
     ctx.reply(saveApiKeyErrorText);
   }
 });
 
-bot.command('clear', async (ctx) => {
+
+bot.command('clear_history', async (ctx) => {
   const userId = ctx.from.id;
   try {
     await pool.query('DELETE FROM lf_bot_message_history WHERE user_id = $1', [userId]);
@@ -68,6 +72,72 @@ bot.command('clear', async (ctx) => {
   }
 });
 
+
+bot.command('clear_key', async (ctx) => {
+  const userId = ctx.from.id;
+  try {
+    await pool.query('DELETE FROM lf_bot_user_settings WHERE user_id = $1', [userId]);
+    ctx.reply(cleanSettingsText);
+  } catch (error) {
+    console.error('Ошибка при очистке настроек:', error);
+    ctx.reply(cleanSettingsErrorText);
+  }
+});
+
+
+bot.command('set_language', (ctx) => {
+
+  ctx.reply('🌐 Выберите язык:', {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🇦🇲 Армянский', callback_data: 'set_armenian' }],
+        [{ text: '🇬🇧 Английский', callback_data: 'set_english' }],
+      ]
+    }
+  });
+
+});
+
+
+bot.on('callback_query', async (ctx) => {
+  const callback = ctx.callbackQuery;
+
+  if ('data' in callback) {
+    console.log(' >>> ', callback.data);
+    const userId = ctx.from.id;
+    const data = callback.data;
+
+    if (data === 'set_armenian') {
+      await pool.query(
+        `INSERT INTO lf_bot_user_settings (user_id, language)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id) DO UPDATE SET language = EXCLUDED.language`,
+        [userId, 'армянский']
+      );
+      await ctx.answerCbQuery('Установлен армянский язык 🇦🇲');
+      await ctx.editMessageText('✅ Установлен язык: армянский 🇦🇲');
+    }
+
+    if (data === 'set_english') {
+      await pool.query(
+        `INSERT INTO lf_bot_user_settings (user_id, language)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id) DO UPDATE SET language = EXCLUDED.language`,
+        [userId, 'английский']
+      );
+      await ctx.answerCbQuery('Установлен английский язык 🇬🇧');
+      await ctx.editMessageText('✅ Language set: English 🇬🇧');
+    }
+  } else {
+    // Например, GameQuery — просто игнорируем или логируем
+    console.warn('Unsupported callbackQuery type:', callback);
+  }
+});
+
+
+// команды идут перед обработчиком текстовых сообщений
+
+
 bot.on('text', async (ctx) => {
   const userId = ctx.from.id;
   const userText = ctx.message.text;
@@ -77,9 +147,10 @@ bot.on('text', async (ctx) => {
   }
 
   try {
-    const userSettings = await pool.query('SELECT fireworks_api_key FROM lf_bot_user_settings WHERE user_id = $1', [userId]);
+    const userSettings = await pool.query('SELECT fireworks_api_key, language FROM lf_bot_user_settings WHERE user_id = $1', [userId]);
 
     const fireworksApiKey = userSettings.rows.length > 0 ? userSettings.rows[0].fireworks_api_key : process.env.FIREWORKS_API_KEY;
+    const language = userSettings.rows[0].language || 'финский';
 
     if (!isValidFireworksKey(fireworksApiKey)) {
       return ctx.reply(noKeyText);
@@ -92,7 +163,7 @@ bot.on('text', async (ctx) => {
 
     const messagesForApi = await getHistory(userId);
 
-    const data = await requestGpt(userText, messagesForApi, fireworksApiKey);
+    const data = await requestGpt(userText, messagesForApi, fireworksApiKey, language);
     const botResponseText = data.choices[0].text;
 
     // Сохраняем ответ бота в БД
@@ -111,6 +182,7 @@ bot.on('text', async (ctx) => {
         content: botResponseText.split(SEPARATOR)[0],
       }],
       fireworksApiKey,
+      language,
     );
 
   } catch (error) {
@@ -119,18 +191,33 @@ bot.on('text', async (ctx) => {
   }
 });
 
-bot.launch();
+async function initBot() {
+  await bot.telegram.setMyCommands([
+    { command: 'set_language', description: 'Установить язык изучения' },
+    { command: 'clear_history', description: 'Очистить историю' },
+    { command: 'clear_key', description: 'Удалить ключ и настройки' },
+  ]);
 
-console.log('Бот запущен...');
+  await bot.launch();
+  console.log('Бот запущен...');
+}
 
-function postponedPingMessage (userId: number, ctx: Ctx, messagesForApi: HistoryMessage[], fireworksApiKey: string) {
+initBot();
+
+function postponedPingMessage (
+  userId: number,
+  ctx: Ctx,
+  messagesForApi: HistoryMessage[],
+  fireworksApiKey: string,
+  language: string,
+) {
     if (userTimers.has(userId)) {
       clearTimeout(userTimers.get(userId));
     }
   
     const timeoutId = setTimeout(async () => {
 
-    const data = await requestGpt(null, messagesForApi, fireworksApiKey);
+    const data = await requestGpt(null, messagesForApi, fireworksApiKey, language);
     const botResponseText = data.choices[0].text;
 
     // Сохраняем ответ бота в БД
