@@ -1,7 +1,7 @@
 import { Context, NarrowedContext, Telegraf } from 'telegraf';
 import { Update, Message } from 'telegraf/typings/core/types/typegram';
 import pool from './db';
-import { escapeMarkdownV2, isValidFireworksKey, SEPARATOR } from './helpers';
+import { escapeMarkdownV2, isValidFireworksKey, sanitizeInput, SEPARATOR } from './helpers';
 import { requestGpt } from './api';
 import {
   welcomeText,
@@ -15,7 +15,9 @@ import {
   saveApiKeyErrorText,
   cleanSettingsText,
   cleanSettingsErrorText,
- } from './lang';
+} from './lang';
+
+const MAX_INPUT_LENGTH = 400;
 
 type Ctx = NarrowedContext<Context<Update>, {
   message: Update.New & Update.NonChannel & Message.TextMessage;
@@ -27,7 +29,7 @@ type HistoryMessage = {
   content: any;
 }
 
- const userTimers = new Map();
+const userTimers = new Map();
 
 if (process.env.NODE_ENV !== 'production') { // fly.io has another way to set secrets
   require('dotenv').config();
@@ -39,7 +41,7 @@ bot.start((ctx) => ctx.reply(escapeMarkdownV2(welcomeText), { parse_mode: 'Markd
 
 bot.command('set_key', async (ctx) => {
   const userId = ctx.from.id;
-  const apiKey = ctx.message.text.split(' ')[1];
+  const apiKey = sanitizeInput(ctx.message.text).slice(0, MAX_INPUT_LENGTH).split(' ')[1];
 
   if (!apiKey) {
     return ctx.reply(provideKeyText);
@@ -96,7 +98,6 @@ bot.command('set_language', (ctx) => {
         [{ text: '🇷🇴 Румынский', callback_data: 'set_romanian' }],
         [{ text: '🇷🇸 Сербский', callback_data: 'set_serbian' }],
         [{ text: '🇪🇪 Эстонский', callback_data: 'set_estonian' }],
-        [{ text: '🇯🇵 Японский', callback_data: 'set_japanese' }],
       ]
     }
   });
@@ -155,17 +156,6 @@ bot.on('callback_query', async (ctx) => {
       await ctx.editMessageText('✅ Language set: Romanian 🇷🇴');
     }
 
-    if (data === 'set_japanese') {
-      await pool.query(
-        `INSERT INTO lf_bot_user_settings (user_id, language)
-         VALUES ($1, $2)
-         ON CONFLICT (user_id) DO UPDATE SET language = EXCLUDED.language`,
-        [userId, 'японский']
-      );
-      await ctx.answerCbQuery('Установлен японский язык 🇯🇵');
-      await ctx.editMessageText('✅ Language set: Japanese 🇯🇵');
-    }
-
     if (data === 'set_estonian') {
       await pool.query(
         `INSERT INTO lf_bot_user_settings (user_id, language)
@@ -198,7 +188,7 @@ bot.on('callback_query', async (ctx) => {
 
 bot.on('text', async (ctx) => {
   const userId = ctx.from.id;
-  const userText = ctx.message.text;
+  const userText = sanitizeInput(ctx.message.text).slice(0, MAX_INPUT_LENGTH);
 
   if (userText && userText.startsWith('/')) {
     return;
@@ -291,7 +281,7 @@ function postponedPingMessage (
     ctx.reply(botResponseText.replace(SEPARATOR, ''));
 
       userTimers.delete(userId);
-    }, 90 * 60 * 1000); // 90 минут
+    }, 20 * 60 * 1000); // 20 минут
 
     userTimers.set(userId, timeoutId);
 }
