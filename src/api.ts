@@ -25,7 +25,7 @@ export async function requestGpt(
     {
       model: model,
       prompt: getPrompt(userText, messages, language),
-      max_tokens: 400,
+      max_tokens: userText ? 400 : 200,
       temperature: 0.6,
       top_p: 0.8,
       stream: false
